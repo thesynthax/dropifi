@@ -1,0 +1,43 @@
+{
+  "name": "filio",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon src/server.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thesynthax/filio.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/thesynthax/filio/issues"
+  },
+  "homepage": "https://github.com/thesynthax/filio#readme",
+  "devDependencies": {
+    "@eslint/js": "^9.2.0",
+    "@types/body-parser": "^1.19.5",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.12.12",
+    "@types/uuid": "^9.0.8",
+    "body-parser": "^1.20.2",
+    "eslint": "^9.2.0",
+    "globals": "^15.2.0",
+    "nodemon": "^3.1.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5",
+    "typescript-eslint": "^7.9.0",
+    "typescript-language-server": "^4.3.3"
+  },
+  "dependencies": {
+    "@types/multer": "^1.4.11",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^9.0.1"
+  }
+}
