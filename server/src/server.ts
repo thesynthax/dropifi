@@ -80,7 +80,7 @@ app.get('/:id', (req, res) => {
     const fileId = req.params.id;
 
     const qry = `SELECT * FROM files WHERE uniqueId = ?`;
-    const values = [fileId];
+    const values = [fileId.split('.')[0]];
     db.get(qry, values, (err, row: FileRow | undefined) => {
         if (err) {
             console.error('Error fetching file data:', err);
