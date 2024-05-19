@@ -1,0 +1,6 @@
+{
+    "BASE_URL": "http://localhost:5000",
+    "UPLOAD_DESTINATION": "uploads",
+    "DATABASE_LOCATION": "uploads.db",
+    "MAX_FILE_SIZE": 20
+}
