@@ -57,11 +57,12 @@ app.get("/", (req, res) => {
 
 app.post("/", upload.single('file'), async (req, res) => {
     const file = req.file;
-    console.log(fileTypeFromFile(file?.path!));
+
     const qry = `INSERT INTO files (filename, filepath, mimetype, uniqueId) VALUES (?, ?, ?, ?)`;
     
     const uniqueId = fileName.split('.')[0];
-    const values = [file?.originalname, file?.path, file?.mimetype, uniqueId];
+    const filetype = (await fileTypeFromFile(file?.path!))?.mime;
+    const values = [file?.originalname, file?.path, filetype, uniqueId];
 
     db.run(qry, values, (err) => {
         if (err) {
@@ -72,7 +73,7 @@ app.post("/", upload.single('file'), async (req, res) => {
         
         const uniqueUrl = baseUrl === "localhost" ? `${baseUrl}:${config.default.PORT}/files/${fileName}` : `${baseUrl}/files/${fileName}`;
         res.send(`${uniqueUrl}\n`);
-        console.log('File uploaded:', file);
+        console.log('File uploaded:', values);
     });
 
 });
