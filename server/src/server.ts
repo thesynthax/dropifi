@@ -2,14 +2,16 @@ import express from "express";
 import bodyParser from "body-parser";
 import multer from "multer";
 import path from "path";
-import * as sqlite3 from "sqlite3";
+import { fileURLToPath } from "url";
+import sqlite3 from "sqlite3";
 import { v4 as uuidv4 } from "uuid";
-import * as config from "../config/config.json";
+import * as config from "../config/config.json" with { type: "json" };
+import { fileTypeFromFile } from "file-type";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const app = express()
 
-const app = express();
-const PORT = 5000;
-
-const DESTINATION = path.join(__dirname, '..', config.UPLOAD_DESTINATION);
+const DESTINATION: string = path.join(__dirname, '..', config.default.UPLOAD_DESTINATION);
 
 let fileName = '';
 const storage = multer.diskStorage({
@@ -21,9 +23,9 @@ const storage = multer.diskStorage({
         callback(null, fileName);
     },
 });
-const upload = multer({ storage: storage });
+const upload: multer.Multer = multer({ storage: storage });
 
-const DB_LOCATION = path.join(__dirname, '..', config.DATABASE_LOCATION);
+const DB_LOCATION = path.join(__dirname, '..', config.default.DATABASE_LOCATION);
 const db = new sqlite3.Database(DB_LOCATION, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
     if (err) {
         console.error('Error opening database:', err.message);
@@ -55,7 +57,7 @@ app.get("/", (req, res) => {
 
 app.post("/", upload.single('file'), async (req, res) => {
     const file = req.file;
-    
+    console.log(fileTypeFromFile(file?.path!));
     const qry = `INSERT INTO files (filename, filepath, mimetype, uniqueId) VALUES (?, ?, ?, ?)`;
     
     const uniqueId = fileName.split('.')[0];
@@ -67,7 +69,8 @@ app.post("/", upload.single('file'), async (req, res) => {
         }
 
         const baseUrl = req.hostname;
-        const uniqueUrl = `${baseUrl}/files/${fileName}`;
+        
+        const uniqueUrl = baseUrl === "localhost" ? `${baseUrl}:${config.default.PORT}/files/${fileName}` : `${baseUrl}/files/${fileName}`;
         res.send(`${uniqueUrl}\n`);
         console.log('File uploaded:', file);
     });
@@ -107,4 +110,4 @@ app.get('/files/:id', (req, res) => {
 
 })
 
-app.listen(PORT, () => console.log("Server running!"));
+app.listen(config.default.PORT, () => console.log("Server running!"));
