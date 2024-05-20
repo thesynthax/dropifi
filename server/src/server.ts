@@ -24,7 +24,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 const DB_LOCATION = path.join(__dirname, '..', config.DATABASE_LOCATION);
-const db = new sqlite3.Database(DB_LOCATION, sqlite3.OPEN_READWRITE, (err) => {
+const db = new sqlite3.Database(DB_LOCATION, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
     if (err) {
         console.error('Error opening database:', err.message);
         process.exit(1);
@@ -49,15 +49,14 @@ interface FileRow {
 }
 
 app.use(bodyParser.json());
-app.use('/uploads', express.static(DESTINATION));
+//app.use('/uploads', express.static(DESTINATION));
 app.get("/", (req, res) => {
     res.send("App is working!");
 })
 
 app.post("/", upload.single('file'), async (req, res) => {
-
     const file = req.file;
-
+    
     const qry = `INSERT INTO files (filename, filepath, mimetype, uniqueId) VALUES (?, ?, ?, ?)`;
     
     const uniqueId = fileName.split('.')[0];
@@ -91,14 +90,21 @@ app.get('/files/:id', (req, res) => {
             return res.status(404).send('File not found');
         }
         
+        //res.setHeader('Content-Disposition', `attachment; filename="${fileId}"`);
         const filepath = row.filepath;
-        res.sendFile(filepath, (err) => {
-            if (err) {
-                console.error('Error serving file:', err);
-                return res.status(500).send(`Internal Server Error.`);
-            }
-            console.log('File served successfully!');
-        })
+        const filetype = row.mimetype; 
+        if (filetype) {
+            res.setHeader('Content-Type', filetype);
+            res.sendFile(filepath, (err) => {
+                if (err) {
+                    console.error('Error serving file:', err);
+                    return res.status(500).send(`Internal Server Error.`);
+                }
+                console.log('File served successfully!');
+            });
+        } else {
+            res.status(415).send('Unsupported Media type');
+        }
     });
 
 })
