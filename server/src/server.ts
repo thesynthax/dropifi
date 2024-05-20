@@ -69,14 +69,14 @@ app.post("/", upload.single('file'), async (req, res) => {
         }
 
         const baseUrl = config.BASE_URL;
-        const uniqueUrl = `${baseUrl}/${fileName}`;
+        const uniqueUrl = `${baseUrl}/files/${fileName}`;
         res.send(`${uniqueUrl}\n`);
         console.log('File uploaded:', file);
     });
 
 });
 
-app.get('/:id', (req, res) => {
+app.get('/files/:id', (req, res) => {
     const fileId = req.params.id;
 
     const qry = `SELECT * FROM files WHERE uniqueId = ?`;
