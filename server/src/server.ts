@@ -49,7 +49,7 @@ interface FileRow {
 }
 
 app.use(bodyParser.json());
-//app.use('/uploads', express.static(DESTINATION));
+app.use('/uploads', express.static(DESTINATION));
 app.get("/", (req, res) => {
     res.send("App is working!");
 })
