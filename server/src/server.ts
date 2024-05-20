@@ -49,7 +49,6 @@ interface FileRow {
 }
 
 app.use(bodyParser.json());
-//app.use('/uploads', express.static(DESTINATION));
 app.get("/", (req, res) => {
     res.send("App is working!");
 })
@@ -67,7 +66,7 @@ app.post("/", upload.single('file'), async (req, res) => {
             return res.status(500).send("Internal Server Error");
         }
 
-        const baseUrl = config.BASE_URL;
+        const baseUrl = req.hostname;
         const uniqueUrl = `${baseUrl}/files/${fileName}`;
         res.send(`${uniqueUrl}\n`);
         console.log('File uploaded:', file);
@@ -90,7 +89,6 @@ app.get('/files/:id', (req, res) => {
             return res.status(404).send('File not found');
         }
         
-        //res.setHeader('Content-Disposition', `attachment; filename="${fileId}"`);
         const filepath = row.filepath;
         const filetype = row.mimetype; 
         if (filetype) {
