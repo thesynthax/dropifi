@@ -7,6 +7,8 @@ import sqlite3 from "sqlite3";
 import { v4 as uuidv4 } from "uuid";
 import * as config from "../config/config.json" with { type: "json" };
 import { fileTypeFromFile } from "file-type";
+import cleanup from "./cleanup.js";
+import { scheduleJob } from "node-schedule";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express()
@@ -14,6 +16,8 @@ const app = express()
 const DESTINATION: string = path.join(__dirname, '..', config.default.UPLOAD_DESTINATION);
 
 let fileName = '';
+let removed = false;
+
 const storage = multer.diskStorage({
     destination: (req, file, callback) => {
         callback(null, DESTINATION);
@@ -39,14 +43,22 @@ db.serialize(() => {
         filename TEXT,
         filepath TEXT,
         mimetype TEXT,
+        filesize BIGINTEGER,
+        removed BOOLEAN,
+        expiration INTEGER,
+        uploadDate INTEGER,
         uniqueId TEXT UNIQUE
     )`);
 });
 
-interface FileRow {
+export interface FileRow {
     filename: string;
     filepath: string;
     mimetype: string;
+    filesize: bigint;
+    removed: boolean;
+    expiration: number;
+    uploadDate: number;
     uniqueId: string;
 }
 
@@ -58,11 +70,14 @@ app.get("/", (req, res) => {
 app.post("/", upload.single('file'), async (req, res) => {
     const file = req.file;
 
-    const qry = `INSERT INTO files (filename, filepath, mimetype, uniqueId) VALUES (?, ?, ?, ?)`;
+    const qry = `INSERT INTO files (filename, filepath, mimetype, filesize, removed, expiration, uploadDate, uniqueId) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
     
+    const expiration = Math.floor(config.default.MIN_AGE - (config.default.MAX_AGE - config.default.MIN_AGE) * Math.pow((file?.size! / config.default.MAX_FILE_SIZE - 1), 3));
+    removed = false;
     const uniqueId = fileName.split('.')[0];
     const filetype = (await fileTypeFromFile(file?.path!))?.mime;
-    const values = [file?.originalname, file?.path, filetype, uniqueId];
+    const uploadDate = Math.ceil(Date.now() / 1000 / 60 / 60 / 24);
+    const values = [file?.originalname, file?.path, filetype, file?.size, removed, expiration, uploadDate, uniqueId];
 
     db.run(qry, values, (err) => {
         if (err) {
@@ -110,5 +125,7 @@ app.get('/files/:id', (req, res) => {
     });
 
 })
+
+scheduleJob("0 0 * * *", () => cleanup(db));
 
 app.listen(config.default.PORT, () => console.log("Server running!"));
