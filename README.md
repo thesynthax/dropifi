@@ -5,7 +5,7 @@
    1) Open a terminal (make sure you have curl installed).
    2) type `curl -F "file=@<path/to/file>" https://dropifi.thesynthaxx.tech` (more options below).
    3) A URL pointing to your file will be returned.
-2) using a browser (for tech-noobs):
+2) using a browser (for tech-noobs) [not working yet]:
    1) Open up your favorite browser and go to [dropifi](https://dropifi.thesynthax.tech).
    2) Upload the file in the dialog box shown.
    3) Configure all the options or leave them as it is.
@@ -24,6 +24,7 @@
    - A maximum file size of 100MB can be hosted on this server.
    - The retention period decreases cubically from 30 days to 1 day as the file size increases to 100MB.
 - A configurable MIME type blocklist to block certain file types.
+- Cleanup method which runs every day to clear the expired files.
 - All the files uploaded would be open-source, i.e., anyone with the link to that file can access it unless specified (refer to next point).
 - SECURE mode to upload files with a password, which will be required when accessing the URL.
 - Virus Scanner
