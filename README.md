@@ -35,7 +35,7 @@
 - Features like signing up for an account, management of files through various options, or implementing custom viewers for files are considered bloat for the software.
 
 ### How to host the server:
-1) Clone this repository using `https://github.com/thesynthax/dropifi.git`
+1) Clone this repository using `git clone https://github.com/thesynthax/dropifi.git`
 2) `cd dropifi` and `npm i --force`
 3) Configure as required in `server/config/config.json` (though the defaults are usually good to go)
 4) Now run `npm run start` to run the production server.
