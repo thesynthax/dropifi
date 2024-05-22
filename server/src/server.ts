@@ -71,7 +71,7 @@ export interface FileRow {
 app.use(bodyParser.json());
 
 app.get("/", (req, res) => {
-    res.send("App is working!");
+    res.send("App is working! Go to https://github.com/thesynthax/dropifi for documentation. A better looking and functional page coming soon :)");
 })
 
 app.post("/", upload.single('file'), async (req, res) => {
