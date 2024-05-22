@@ -13,7 +13,7 @@
 
 #### All cURL options:
 - Set expiry: `-F"expires=<number-of-days (1-30)>"`. For e.g., `curl -F"file=@abc.jpg" -F"expires=15" https://dropifi.example.com`
-- SECURE mode: `-F"secure=<on/off>"`. For e.g., `curl -F"file=@abc.jpg" -F"secure=on" https://dropifi.example.com`
+- SECURE mode: `-F"pass=<password>"`. For e.g., `curl -F"file=@abc.jpg" -F"pass=123456" https://dropifi.example.com`
 
 ### Features:
 - A minimal way to host files and retrieve them instantly
@@ -36,7 +36,7 @@
 
 ### How to host the server:
 1) Clone this repository using `git clone https://github.com/thesynthax/dropifi.git`
-2) `cd dropifi` and `npm i --force`
+2) `cd dropifi` and `npm i --force`. Make sure you are using Node 21.
 3) Configure as required in `server/config/config.json` (though the defaults are usually good to go)
 4) Now run `npm run start` to run the production server.
 
