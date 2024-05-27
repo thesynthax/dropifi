@@ -39,7 +39,7 @@
 1) Type `docker pull thesynthax/dropifi:1.0` in command line.
 2) Now run `docker run -p 5000:5000 thesynthax/dropifi:1.0` to run the server.
 Note:
-- Only works for amd64 architecture yet, working on arm64 for Raspberry Pi.
+- Works on amd64 and arm64 architecture.
 - Persistent volumes don't work yet, adding soon.
 - Can't edit config.json due to environment variables and persistent volumes not setup.
 - docker-compose.yml coming soon.
