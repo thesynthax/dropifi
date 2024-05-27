@@ -35,8 +35,18 @@
 - Features like signing up for an account, management of files through various options, or implementing custom viewers for files are considered bloat for the software.
 
 ### How to host the server:
+#### Docker
+1) Type `docker pull thesynthax/dropifi:1.0` in command line.
+2) Now run `docker run -p 5000:5000 thesynthax/dropifi:1.0` to run the server.
+Note:
+- Only works for amd64 architecture yet, working on arm64 for Raspberry Pi.
+- Persistent volumes don't work yet, adding soon.
+- Can't edit config.json due to environment variables and persistent volumes not setup.
+- docker-compose.yml coming soon.
+### OR
+#### Building from source
 1) Clone this repository using `git clone https://github.com/thesynthax/dropifi.git`
-2) `cd dropifi` and `npm i --force`. Make sure you are using Node 21.
+2) `cd dropifi` and `npm i`. Make sure you are using Node 21.
 3) Configure as required in `server/config/config.json` (though the defaults are usually good to go)
 4) Now run `npm run start` to run the production server.
 
