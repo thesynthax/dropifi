@@ -46,9 +46,11 @@ Note:
 ### OR
 #### Building from source
 1) Clone this repository using `git clone https://github.com/thesynthax/dropifi.git`
-2) `cd dropifi` and `npm i`. Make sure you are using Node 21.
-3) Configure as required in `server/config/config.json` (though the defaults are usually good to go)
-4) Now run `npm run start` to run the production server.
+2) `cd dropifi/server` and `npm i`. Make sure you are using Node 21.
+3) Do the same with `dropifi/client`. Here run `npm run build`.
+4) `cp build ../server`.
+5) Configure as required in `server/config/config.json` (though the defaults are usually good to go).
+6) Now run `npm run start` to run the production server.
 
 #### Reverse-proxy (Nginx setup):
 1) Assuming the basic Nginx setup is already done, and the server is working.
