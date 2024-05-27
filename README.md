@@ -48,7 +48,7 @@ Note:
 1) Clone this repository using `git clone https://github.com/thesynthax/dropifi.git`
 2) `cd dropifi/server` and `npm i`. Make sure you are using Node 21.
 3) Do the same with `dropifi/client`. Here run `npm run build`.
-4) `cp build ../server`.
+4) `cp -r build ../server/`.
 5) Configure as required in `server/config/config.json` (though the defaults are usually good to go).
 6) Now run `npm run start` to run the production server.
 
