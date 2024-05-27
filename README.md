@@ -50,7 +50,8 @@ Note:
 3) Do the same with `dropifi/client`. Here run `npm run build`.
 4) `cp -r build ../server/`.
 5) Configure as required in `server/config/config.json` (though the defaults are usually good to go).
-6) Now run `npm run start` to run the production server.
+6) Go to `dropifi/server` and run `npm run build`.
+7) Now run `npm run start` to run the production server.
 
 #### Reverse-proxy (Nginx setup):
 1) Assuming the basic Nginx setup is already done, and the server is working.
