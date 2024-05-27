@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import bodyParser from "body-parser";
 import multer from "multer";
 import path from "path";
@@ -11,13 +12,24 @@ import cleanup from "./cleanup.js";
 import { scheduleJob } from "node-schedule";
 import bcrypt from "bcrypt";
 import basicAuth from "basic-auth";
+import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const app = express()
+const app = express();
+app.use(cors());
 
 const DESTINATION: string = path.join(__dirname, '..', config.default.UPLOAD_DESTINATION);
+const BUILD: string = path.join(__dirname, "..", "build");
+
+try {
+    if (!fs.existsSync(DESTINATION)) {
+        fs.mkdirSync(DESTINATION);
+    }
+} catch (err) {
+    console.error(err);
+}
 
 let fileName = '';
 let removed = false;
@@ -70,8 +82,10 @@ export interface FileRow {
 
 app.use(bodyParser.json());
 
+app.use(express.static(BUILD));
 app.get("/", (req, res) => {
-    res.send("App is working! Go to https://github.com/thesynthax/dropifi for documentation. A better looking and functional page coming soon :)");
+    //res.send("App is working! Go to https://github.com/thesynthax/dropifi for documentation. A better looking and functional page coming soon :)");
+    res.sendFile(path.join(BUILD, "index.html"));
 })
 
 app.post("/", upload.single('file'), async (req, res) => {

@@ -1,22 +1,25 @@
-import { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import About from './components/About';
+import Home from './components/Home';
+import Navbar from './components/Navbar';
+
 
 const App = () => {
-    const URL = "http://localhost:5000";
-    const [data, setData] = useState("");    
-
-    const getData = async () => {
-        const response = await (await fetch(URL)).text();
-
-        setData(response);
-    }
-
-    useEffect(() => {
-        getData();
-    }, []);
-
-    return (
-        <div>{data}</div>
-    );
+  return (
+    <Router>
+      <div className="App">
+        <Navbar />
+        <div className="content">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/about" element={<About />}/>
+            <Route path="*" />
+          </Routes>
+        </div>
+      </div>
+    </Router>
+  );
 }
 
 export default App;
+
