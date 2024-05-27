@@ -22,7 +22,7 @@ const Form = () => {
     formData.append('file', file);
     formData.append('expires', expires);
     formData.append('pass', pass);
-    const res = await (await fetch("http://localhost:5000", {
+    const res = await (await fetch("/", {
       method: 'POST',
       body: formData
     })).text();

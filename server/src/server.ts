@@ -125,7 +125,8 @@ app.post("/", upload.single('file'), async (req, res) => {
 
         const baseUrl = req.hostname;
         
-        const uniqueUrl = baseUrl === "localhost" ? `${baseUrl}:${config.default.PORT}/files/${fileName}` : `${baseUrl}/files/${fileName}`;
+        const uniqueUrl = baseUrl === "localhost" || baseUrl.match('^(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])$')
+            ? `${baseUrl}:${config.default.PORT}/files/${fileName}` : `${baseUrl}/files/${fileName}`;
         res.send(hashedPassword === '' ? `${uniqueUrl}\n` : `${uniqueUrl}\nNo need to enter username when accessing the file.\n`);
         console.log('File uploaded:', values);
     });
