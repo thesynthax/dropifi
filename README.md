@@ -6,7 +6,7 @@
    2) type `curl -F "file=@<path/to/file>" https://dropifi.thesynthaxx.tech` (more options below).
    3) A URL pointing to your file will be returned.
 2) using a browser (for tech-noobs) [not working yet]:
-   1) Open up your favorite browser and go to [dropifi](https://dropifi.thesynthax.tech).
+   1) Open up your favorite browser and go to [dropifi](https://dropifi.thesynthax.xyz).
    2) Upload the file in the dialog box shown.
    3) Configure all the options or leave them as it is.
    4) Upload, and there you have your link.
@@ -37,7 +37,7 @@
 ### How to host the server:
 #### Docker
 1) Type `docker pull thesynthax/dropifi:1.0` in command line.
-2) Now run `docker run -p 5000:5000 thesynthax/dropifi:1.0` to run the server.
+2) Now run `docker run -d -p 5000:5000 thesynthax/dropifi:1.0` to run the server.
 Note:
 - Works on amd64 and arm64 architecture.
 - Persistent volumes don't work yet, adding soon.
