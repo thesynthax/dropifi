@@ -9,7 +9,7 @@
    1) Open up your favorite browser and go to [dropifi](https://dropifi.thesynthax.xyz).
    2) Upload the file in the dialog box shown.
    3) Configure all the options or leave them as it is.
-   4) Upload, and there you have your link.
+   4) Upload, and there you have your link. (try disabling ad-blocker if it doesn't work)
 
 #### All cURL options:
 - Set expiry: `-F"expires=<number-of-days (1-30)>"`. For e.g., `curl -F"file=@abc.jpg" -F"expires=15" https://dropifi.example.com`
