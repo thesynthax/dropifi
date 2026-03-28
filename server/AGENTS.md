@@ -2,13 +2,20 @@
 
 ## Project Overview
 
-Dropifi is a **minimal, developer-first file drop service** (like 0x0.st). This is a learning-focused project to demonstrate backend engineering skills.
+Dropifi is a **minimal, developer-first file drop service** (like 0x0.st). The core concept is simple: upload a file via `curl` or browser, get an instant shareable URL, files expire automatically.
 
-**Tech Stack (v2):**
-- TypeScript 6
+```
+curl -F "file=@document.pdf" http://localhost:5000/
+→ {"url":"/files/abc123.pdf","expires_at":"2026-03-29T12:00:00.000Z"}
+```
+
+**Tech Stack (v2 - Production Ready):**
+- TypeScript 6 (strict mode, ES Modules)
 - Fastify 5 (web framework)
-- PostgreSQL (metadata storage)
-- Object Storage (file storage - future)
+- PostgreSQL (metadata with connection pooling)
+- MinIO/S3 (object storage)
+- Redis (caching, rate limiting, BullMQ)
+- BullMQ (background job processing)
 - ES Modules
 
 ---
@@ -35,38 +42,28 @@ Dropifi is a **minimal, developer-first file drop service** (like 0x0.st). This 
 
 ## Complete Feature Checklist
 
-### Core Features (Implemented)
+### Core Features (Implemented ✅)
 | Feature | Status | Notes |
 |---------|--------|-------|
 | File Upload (`POST /`) | ✅ | Multipart handling |
 | File Download (`GET /files/:id`) | ✅ | Database lookup |
 | PostgreSQL Integration | ✅ | Connection pooling, schema |
-| Validation | ✅ | Size, MIME, extension |
-| Config-driven | ✅ | All in config.json |
-
-### Core Features (Pending)
-| Feature | Priority | Notes |
-|---------|----------|-------|
-| TTL/Cleanup | High | Expired file removal |
-| Expiry calculation (v1 style) | High | File size → expiry time |
-| Magic byte detection | Medium | Real MIME verification |
-| Password protection | Medium | Optional file security |
+| Validation (size, MIME, extension) | ✅ | Configurable limits |
+| Magic Byte Detection | ✅ | file-type library |
+| Smart Expiry Calculation | ✅ | Cubic formula (v1 style) |
+| TTL Cleanup | ✅ | BullMQ + Redis |
+| Storage Abstraction | ✅ | LocalDisk, S3, MinIO |
+| Rate Limiting | ✅ | Sliding window (Redis) |
+| Graceful Shutdown | ✅ | Pool/Redis cleanup |
 
 ### Advanced Features (Future)
 | Feature | Priority | Notes |
 |---------|----------|-------|
-| Object Storage (S3/MinIO) | High | Replace local disk |
-| CDN integration | Medium | For downloads |
-| Rate limiting | Medium | Abuse prevention |
-| Download limits | Low | Max downloads per file |
-| CLI tool | Low | Terminal-first UX |
-
-### Infrastructure (Future)
-| Feature | Priority | Notes |
-|---------|----------|-------|
-| Background workers | High | Async cleanup |
-| Redis caching | Medium | Rate limiting, sessions |
-| Load balancer | Low | Horizontal scaling |
+| Password Protection | Medium | Per-file security |
+| Download Limits | Low | Max downloads per file |
+| CLI Tool | Low | Terminal-first UX |
+| CDN Integration | Medium | For downloads |
+| Pre-signed Uploads | Low | Direct-to-S3 |
 
 ---
 
@@ -88,8 +85,8 @@ Dropifi is a **minimal, developer-first file drop service** (like 0x0.st). This 
 | Version | Storage | Why |
 |---------|---------|-----|
 | v1 | Local filesystem | Simple, single-server |
-| v2 (current) | Local filesystem | Development |
-| v2 (target) | Object Storage (S3) | Scalable, distributed |
+| v2 (dev) | Local filesystem | Development |
+| v2 (prod) | Object Storage (S3/MinIO) | Scalable, distributed |
 
 ### Database Evolution
 
@@ -100,6 +97,34 @@ Dropifi is a **minimal, developer-first file drop service** (like 0x0.st). This 
 
 ---
 
+## Current Architecture
+
+```
+                    Client
+                       ↓
+              ┌───────────────┐
+              │ Load Balancer │ (future)
+              └───────────────┘
+                       ↓
+       ┌──────────────────────────────┐
+       │   Stateless API Servers     │ ← Fastify
+       └──────────────────────────────┘
+                       ↓
+    ┌────────────────────────────────────────┐
+    │                                        │
+    │  PostgreSQL ──── Object Storage ──── Redis  │
+    │   (metadata)    (S3/MinIO)    (queue/cache) │
+    │                                        │
+    └────────────────────────────────────────┘
+                       ↓
+    ┌────────────────────────────────────────┐
+    │   Background Workers (BullMQ)          │
+    │   - TTL Cleanup                        │
+    └────────────────────────────────────────┘
+```
+
+---
+
 ## Configuration
 
 All configuration is in `server/config/config.json`:
@@ -107,18 +132,20 @@ All configuration is in `server/config/config.json`:
 ```json
 {
     "PORT": 5000,
-    "UPLOAD_DESTINATION": "/tmp/dropifi-uploads",
+    "STORAGE_TYPE": "minio",
+    "S3_ENDPOINT": "http://localhost:9000",
+    "S3_BUCKET": "dropifi",
     "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/dropifi",
+    "REDIS_URL": "redis://localhost:6379",
+    "RATE_LIMIT_ENABLED": true,
+    "RATE_LIMIT_WINDOW_MS": 60000,
+    "RATE_LIMIT_MAX_REQUESTS": 10,
+    "CLEANUP_INTERVAL_HOURS": 24,
     "MAX_FILE_SIZE": 104857000,
-    "MAX_EXT_LENGTH": 10,
     "MIN_AGE": 1,
     "MAX_AGE": 30,
-    "DEFAULT_EXPIRY_HOURS": 24,
-    "MIME_BLACKLIST": [
-        "application/x-dosexec",
-        "application/x-executable",
-        ...
-    ]
+    "TRUST_PROXY": false,
+    "MIME_BLACKLIST": [...]
 }
 ```
 
@@ -127,13 +154,19 @@ All configuration is in `server/config/config.json`:
 | Option | Type | Description |
 |--------|------|-------------|
 | PORT | number | Server port |
-| UPLOAD_DESTINATION | string | Where files are stored |
+| STORAGE_TYPE | string | "local", "s3", or "minio" |
+| S3_ENDPOINT | string | S3/MinIO endpoint URL |
+| S3_BUCKET | string | Bucket name |
 | DATABASE_URL | string | PostgreSQL connection string |
+| REDIS_URL | string | Redis connection string |
+| RATE_LIMIT_ENABLED | boolean | Enable/disable rate limiting |
+| RATE_LIMIT_WINDOW_MS | number | Time window for rate limiting |
+| RATE_LIMIT_MAX_REQUESTS | number | Max requests per window |
+| CLEANUP_INTERVAL_HOURS | number | Hours between cleanup runs |
 | MAX_FILE_SIZE | number | Max file size in bytes (100MB) |
-| MAX_EXT_LENGTH | number | Max extension length |
 | MIN_AGE | number | Min file age in days |
 | MAX_AGE | number | Max file age in days |
-| DEFAULT_EXPIRY_HOURS | number | Default TTL for uploads |
+| TRUST_PROXY | boolean | Trust X-Forwarded-For header |
 | MIME_BLACKLIST | string[] | Blocked file types |
 
 ---
@@ -141,14 +174,15 @@ All configuration is in `server/config/config.json`:
 ## Build Commands
 
 ```bash
-npm run build      # Compile TypeScript
+npm run build      # Compile TypeScript → dist/
 npm run dev        # Development (tsx watch)
-npm start          # Production
-npm run typecheck  # tsc --noEmit
+npm start          # Production (node dist/server.js)
 ```
 
-**Environment Variables:**
-- `DATABASE_URL` - Override database URL from config
+**Environment Variables (override config):**
+- `DATABASE_URL` - PostgreSQL connection string
+- `REDIS_URL` - Redis connection string
+- `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`
 
 ---
 
@@ -161,9 +195,48 @@ npm run typecheck  # tsc --noEmit
     "target": "esnext",
     "strict": true,
     "verbatimModuleSyntax": true,
-    "noUncheckedIndexedAccess": true
+    "noUncheckedIndexedAccess": true,
+    "sourceMap": true,
+    "declaration": true,
+    "outDir": "./dist",
+    "rootDir": "./src"
   }
 }
+```
+
+**Build Output:** TypeScript compiles to `dist/` (not `src/`).
+
+---
+
+## Directory Structure
+
+```
+server/
+├── config/
+│   └── config.json           # All configuration here
+├── src/
+│   ├── server.ts             # Entry point, routes
+│   ├── lib/
+│   │   └── redis.ts          # Redis connection
+│   ├── db/
+│   │   └── index.ts          # PostgreSQL pool
+│   ├── storage/
+│   │   ├── storage.interface.ts
+│   │   ├── local-disk.ts
+│   │   ├── s3-storage.ts
+│   │   ├── factory.ts        # createStorage()
+│   │   └── index.ts
+│   ├── services/
+│   │   ├── validation.ts     # File validation
+│   │   ├── expiry.ts        # TTL calculation
+│   │   ├── cleanup.ts       # Cleanup service
+│   │   ├── rate-limit.ts   # Rate limiting
+│   │   └── index.ts
+│   └── queues/
+│       └── cleanup.ts        # BullMQ worker
+├── dist/                     # Compiled output
+├── package.json
+└── tsconfig.json
 ```
 
 ---
@@ -186,36 +259,12 @@ npm run typecheck  # tsc --noEmit
 ### Naming Conventions
 | Element | Convention | Example |
 |---------|------------|---------|
-| Files | kebab-case | `file-routes.ts` |
-| Interfaces | PascalCase | `FileRecord` |
+| Files | kebab-case | `local-disk.ts` |
+| Interfaces | PascalCase | `StorageService` |
 | Variables | camelCase | `fileSize` |
 | Constants | PascalCase | `MAX_FILE_SIZE` |
 | Functions | camelCase | `validateMimeType` |
 | Config keys | PascalCase | `MAX_FILE_SIZE` |
-
----
-
-## Directory Structure
-
-```
-server/
-├── config/
-│   └── config.json           # All configuration here
-├── src/
-│   ├── server.ts             # Entry point
-│   ├── storage/              # Storage abstraction
-│   │   ├── storage.interface.ts
-│   │   ├── local-disk.ts
-│   │   └── index.ts
-│   ├── services/             # Business logic
-│   │   ├── validation.ts
-│   │   └── index.ts
-│   ├── db/                   # Database layer
-│   │   └── index.ts
-│   └── types/                # TypeScript types (future)
-├── package.json
-└── tsconfig.json
-```
 
 ---
 
@@ -251,36 +300,25 @@ app.listen({ port }, (err, address) => {
 
 ---
 
-## Current Architecture
+## Security Considerations
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                      Fastify Server                      │
-│                                                          │
-│  ┌──────────────┐    ┌──────────────────────────────┐  │
-│  │ POST /       │    │ GET /files/:id               │  │
-│  │ (upload)     │    │ (download)                   │  │
-│  └──────┬───────┘    └───────────┬──────────────────┘  │
-│         ↓                         ↓                      │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │         Validation Service                         │    │
-│  │  - File size check                               │    │
-│  │  - MIME type check                               │    │
-│  │  - Extension check                                │    │
-│  └─────────────────────────────────────────────────┘    │
-│         ↓                                               │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │         LocalDiskStorage                          │    │
-│  │  - Saves to UPLOAD_DESTINATION                   │    │
-│  └─────────────────────────────────────────────────┘    │
-│         ↓                                               │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │         PostgreSQL (metadata)                     │    │
-│  │  - storage_key, original_name, mime, size        │    │
-│  │  - expires_at, created_at                        │    │
-│  └─────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────┘
-```
+### Implemented Protections
+
+| Protection | Implementation |
+|------------|----------------|
+| Path Traversal | Regex validation: `/^[\w-]+\.[\w]+$/` |
+| Header Injection | Sanitize filename: remove `"`, `\n`, `\r`, `\t` |
+| MIME Spoofing | Magic byte detection via `file-type` |
+| Rate Limiting | Sliding window with Redis sorted sets |
+| IP Spoofing | `TRUST_PROXY` config option |
+
+### Input Validation Points
+1. **File size** - Reject > MAX_FILE_SIZE
+2. **MIME type** - Check against blacklist
+3. **Extension** - Max length check
+4. **Magic bytes** - Verify actual content
+5. **Storage key** - Regex pattern match
+6. **Filename** - Sanitize special characters
 
 ---
 
@@ -321,12 +359,38 @@ When adding a feature, always consider:
 
 ---
 
-## Next Steps
+## Running Services (Docker)
 
-1. **TTL/Cleanup** - Remove expired files automatically
-2. **Expiry calculation** - v1-style: larger files = shorter expiry
-3. **Magic byte detection** - Verify actual MIME type
-4. **Object Storage** - Replace LocalDiskStorage with S3
+```bash
+# PostgreSQL (port 5432)
+docker run -d --name postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=dropifi -p 5432:5432 postgres:16
+
+# Redis (port 6379)
+docker run -d --name redis -p 6379:6379 redis:7
+
+# MinIO (ports 9000, 9001)
+docker run -d --name minio -p 9000:9000 -p 9001:9001 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin minio/minio server /data --console-address ":9001"
+```
+
+---
+
+## How to Test
+
+```bash
+cd server
+
+# Start server
+npm run dev
+
+# Test upload
+curl -F "file=@package.json" http://localhost:5000/
+
+# Test download
+curl http://localhost:5000/files/{id}
+
+# Test rate limiting
+for i in {1..12}; do curl -F "file=@package.json" http://localhost:5000/; done
+```
 
 ---
 
@@ -338,9 +402,28 @@ When adding a feature, always consider:
 - Compare v1 vs v2 approaches
 - Keep minimal API surface
 - All config in config.json
+- Use storage abstraction (never bypass)
 
 ### Do NOT
 - Store files locally in production (use S3)
 - Use SQLite (use PostgreSQL)
 - Block requests with heavy processing
 - Tightly couple storage to API
+- Trust X-Forwarded-For without TRUST_PROXY
+
+---
+
+## Key Learnings
+
+1. **Fastify over Express**: Plugin encapsulation, better TypeScript, 2-3x faster
+2. **Storage Abstraction**: Interface pattern allows swapping LocalDisk → S3 with zero route changes
+3. **Connection Pooling**: PostgreSQL pools prevent connection exhaustion
+4. **Magic Bytes**: File signatures detect actual content type (not just HTTP headers)
+5. **Smart Expiry**: Cubic formula - larger files get shorter TTL
+6. **BullMQ/Redis**: Background workers survive server restarts, automatic retries
+7. **MinIO**: Free, self-hosted S3-compatible object storage
+8. **Rate Limiting**: Sliding window algorithm using Redis sorted sets
+
+---
+
+*Last updated: March 2026*
