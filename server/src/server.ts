@@ -2,7 +2,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import fastifyMultipart from "@fastify/multipart";
 import * as config from "../config/config.json" with { type: "json" };
-import { LocalDiskStorage } from "./storage/index.js";
+import { createStorage } from "./storage/index.js";
 import type { StorageService } from "./storage/index.js";
 import { pool, initializeDatabase } from "./db/index.js";
 import { validateFile, calculateExpiry, getExpiryInfo, cleanupExpiredFiles } from "./services/index.js";
@@ -10,7 +10,7 @@ import { scheduleCleanup, createCleanupWorker } from "./queues/cleanup.js";
 import type { Worker } from "bullmq";
 
 const app = Fastify();
-const storage: StorageService = new LocalDiskStorage();
+const storage: StorageService = createStorage();
 
 function sanitizeFilename(filename: string): string {
     return filename
