@@ -1,8 +1,10 @@
 import * as config from "../../config/config.json" with { type: "json" };
+import { fileTypeFromBuffer } from "file-type";
 
 export interface ValidationResult {
     valid: boolean;
     error?: string;
+    detectedMime?: string;
 }
 
 export function validateFileSize(size: number): ValidationResult {
@@ -44,19 +46,56 @@ export function validateExtension(filename: string): ValidationResult {
     return { valid: true };
 }
 
-export function validateFile(
-    size: number,
-    mimeType: string,
+export async function validateMagicBytes(
+    buffer: Buffer,
+    reportedMime: string
+): Promise<ValidationResult> {
+    try {
+        const detected = await fileTypeFromBuffer(buffer);
+
+        if (!detected) {
+            return { valid: true, detectedMime: reportedMime };
+        }
+
+        const detectedMime = detected.mime;
+
+        if (config.default.MIME_BLACKLIST.includes(detectedMime)) {
+            return {
+                valid: false,
+                error: "File type not allowed",
+                detectedMime
+            };
+        }
+
+        if (reportedMime !== detectedMime) {
+            console.warn(
+                `MIME mismatch: reported=${reportedMime}, detected=${detectedMime}`
+            );
+        }
+
+        return { valid: true, detectedMime };
+    } catch (err) {
+        console.error("Magic byte detection failed:", err);
+        return { valid: true, detectedMime: reportedMime };
+    }
+}
+
+export async function validateFile(
+    buffer: Buffer,
+    reportedMime: string,
     filename: string
-): ValidationResult {
-    const sizeResult = validateFileSize(size);
+): Promise<ValidationResult> {
+    const sizeResult = validateFileSize(buffer.length);
     if (!sizeResult.valid) return sizeResult;
 
-    const mimeResult = validateMimeType(mimeType);
+    const mimeResult = validateMimeType(reportedMime);
     if (!mimeResult.valid) return mimeResult;
 
     const extResult = validateExtension(filename);
     if (!extResult.valid) return extResult;
+
+    const magicResult = await validateMagicBytes(buffer, reportedMime);
+    if (!magicResult.valid) return magicResult;
 
     return { valid: true };
 }

@@ -1,9 +1,10 @@
 export interface StoredFile {
-    path: string;
+    storageKey: string;
     url: string;
 }
 
 export interface StorageService {
     save(filename: string, data: Buffer): Promise<StoredFile>;
-    delete(path: string): Promise<void>;
+    delete(storageKey: string): Promise<void>;
+    get(storageKey: string): Promise<Buffer>;
 }

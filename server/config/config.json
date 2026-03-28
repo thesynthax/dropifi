@@ -15,6 +15,9 @@
         "application/java-archive",
         "application/vnd.android.package-archive",
         "application/x-rar",
-        "application/vnd.microsoft.portable-executable"
+        "application/vnd.microsoft.portable-executable",
+        "application/x-msdownload",
+        "application/x-iso9660-image",
+        "application/x-coredump"
     ]
 }
