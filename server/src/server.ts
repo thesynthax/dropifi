@@ -5,7 +5,9 @@ import * as config from "../config/config.json" with { type: "json" };
 import { LocalDiskStorage } from "./storage/index.js";
 import type { StorageService } from "./storage/index.js";
 import { pool, initializeDatabase } from "./db/index.js";
-import { validateFile, calculateExpiry, getExpiryInfo, cleanupExpiredFiles, startCleanupScheduler } from "./services/index.js";
+import { validateFile, calculateExpiry, getExpiryInfo, cleanupExpiredFiles } from "./services/index.js";
+import { scheduleCleanup, createCleanupWorker } from "./queues/cleanup.js";
+import type { Worker } from "bullmq";
 
 const app = Fastify();
 const storage: StorageService = new LocalDiskStorage();
@@ -130,10 +132,21 @@ const start = async () => {
     console.log("Running cleanup on startup...");
     await cleanupExpiredFiles(storage);
 
-    startCleanupScheduler(storage, 24);
+    const cleanupWorker: Worker = createCleanupWorker(storage);
+    await scheduleCleanup();
 
     await app.listen({ port: config.default.PORT });
     console.log(`Server running at http://localhost:${config.default.PORT}`);
+
+    const gracefulShutdown = async () => {
+        console.log("Shutting down gracefully...");
+        await cleanupWorker.close();
+        await app.close();
+        process.exit(0);
+    };
+
+    process.on("SIGTERM", gracefulShutdown);
+    process.on("SIGINT", gracefulShutdown);
 };
 
 start();

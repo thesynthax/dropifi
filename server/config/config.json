@@ -2,11 +2,13 @@
     "PORT": 5000,
     "UPLOAD_DESTINATION": "/tmp/dropifi-uploads",
     "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/dropifi",
+    "REDIS_URL": "redis://localhost:6379",
     "MAX_FILE_SIZE": 104857000,
     "MAX_EXT_LENGTH": 10,
     "MIN_AGE": 1,
     "MAX_AGE": 30,
     "DEFAULT_EXPIRY_HOURS": 24,
+    "CLEANUP_INTERVAL_HOURS": 24,
     "MIME_BLACKLIST": [
         "application/x-dosexec",
         "application/x-executable",
