@@ -5,7 +5,8 @@ import * as config from "../config/config.json" with { type: "json" };
 import { createStorage } from "./storage/index.js";
 import type { StorageService } from "./storage/index.js";
 import { pool, initializeDatabase } from "./db/index.js";
-import { validateFile, calculateExpiry, getExpiryInfo, cleanupExpiredFiles } from "./services/index.js";
+import { redis } from "./lib/redis.js";
+import { validateFile, calculateExpiry, getExpiryInfo, cleanupExpiredFiles, checkRateLimit, getClientIdentifier } from "./services/index.js";
 import { scheduleCleanup, createCleanupWorker } from "./queues/cleanup.js";
 import type { Worker } from "bullmq";
 
@@ -28,6 +29,29 @@ app.get("/", async () => {
 });
 
 app.post("/", async (request, reply) => {
+    const clientId = getClientIdentifier({
+        ip: request.ip,
+        headers: request.headers as Record<string, string | string[]>
+    });
+
+    const rateLimit = await checkRateLimit(clientId);
+
+    reply.header("X-RateLimit-Limit", rateLimit.limit);
+    reply.header("X-RateLimit-Remaining", rateLimit.remaining);
+    reply.header("X-RateLimit-Reset", rateLimit.resetAt.toISOString());
+
+    if (!rateLimit.allowed) {
+        if (rateLimit.retryAfterMs) {
+            reply.header("Retry-After", Math.ceil(rateLimit.retryAfterMs / 1000));
+        }
+        return reply.status(429).send({
+            error: "Rate limit exceeded",
+            message: `Too many requests. Try again in ${Math.ceil((rateLimit.retryAfterMs ?? 0) / 1000)} seconds`,
+            limit: rateLimit.limit,
+            windowMs: config.default.RATE_LIMIT_WINDOW_MS
+        });
+    }
+
     const data = await request.file();
 
     if (!data) {
@@ -94,6 +118,29 @@ app.get<{ Params: { id: string } }>("/files/:id", async (request, reply) => {
         return reply.status(400).send("Invalid file ID");
     }
 
+    const clientId = getClientIdentifier({
+        ip: request.ip,
+        headers: request.headers as Record<string, string | string[]>
+    });
+
+    const rateLimit = await checkRateLimit(clientId);
+
+    reply.header("X-RateLimit-Limit", rateLimit.limit);
+    reply.header("X-RateLimit-Remaining", rateLimit.remaining);
+    reply.header("X-RateLimit-Reset", rateLimit.resetAt.toISOString());
+
+    if (!rateLimit.allowed) {
+        if (rateLimit.retryAfterMs) {
+            reply.header("Retry-After", Math.ceil(rateLimit.retryAfterMs / 1000));
+        }
+        return reply.status(429).send({
+            error: "Rate limit exceeded",
+            message: `Too many requests. Try again in ${Math.ceil((rateLimit.retryAfterMs ?? 0) / 1000)} seconds`,
+            limit: rateLimit.limit,
+            windowMs: config.default.RATE_LIMIT_WINDOW_MS
+        });
+    }
+
     const client = await pool.connect();
 
     try {
@@ -142,6 +189,8 @@ const start = async () => {
         console.log("Shutting down gracefully...");
         await cleanupWorker.close();
         await app.close();
+        await pool.end();
+        await redis.quit();
         process.exit(0);
     };
 

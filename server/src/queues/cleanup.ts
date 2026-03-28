@@ -1,7 +1,7 @@
 import { Queue, Worker, type Job } from "bullmq";
 import { redis } from "../lib/redis.js";
 import { cleanupExpiredFiles } from "../services/cleanup.js";
-import { LocalDiskStorage } from "../storage/local-disk.js";
+import { createStorage } from "../storage/index.js";
 import type { StorageService } from "../storage/storage.interface.js";
 import * as config from "../../config/config.json" with { type: "json" };
 
@@ -39,14 +39,15 @@ export async function scheduleCleanup(): Promise<void> {
 }
 
 export function createCleanupWorker(
-    storage: StorageService = new LocalDiskStorage()
+    storage?: StorageService
 ): Worker {
+    const storageService = storage ?? createStorage();
     const worker = new Worker(
         "cleanup",
         async (job: Job) => {
             console.log(`[Cleanup] Job ${job.id} started at ${new Date().toISOString()}`);
 
-            const result = await cleanupExpiredFiles(storage);
+            const result = await cleanupExpiredFiles(storageService);
 
             console.log(
                 `[Cleanup] Job ${job.id} completed: ${result.deletedFiles}/${result.expiredFiles} files deleted`

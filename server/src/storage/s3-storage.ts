@@ -11,6 +11,16 @@ import { randomUUID } from "crypto";
 import * as config from "../../config/config.json" with { type: "json" };
 import type { StorageService, StoredFile } from "./storage.interface.js";
 
+function validateStorageKey(storageKey: string): void {
+    if (!storageKey || storageKey.length > 100) {
+        throw new Error("Invalid storage key: too long or empty");
+    }
+
+    if (storageKey.includes("..") || storageKey.includes("/")) {
+        throw new Error("Invalid storage key: path traversal detected");
+    }
+}
+
 export class S3Storage implements StorageService {
     private client: S3Client;
     private bucket: string;
@@ -18,15 +28,15 @@ export class S3Storage implements StorageService {
 
     constructor() {
         this.client = new S3Client({
-            endpoint: config.default.S3_ENDPOINT,
-            region: config.default.S3_REGION,
+            endpoint: process.env.S3_ENDPOINT ?? config.default.S3_ENDPOINT,
+            region: process.env.S3_REGION ?? config.default.S3_REGION,
             credentials: {
-                accessKeyId: config.default.S3_ACCESS_KEY,
-                secretAccessKey: config.default.S3_SECRET_KEY
+                accessKeyId: process.env.S3_ACCESS_KEY ?? config.default.S3_ACCESS_KEY,
+                secretAccessKey: process.env.S3_SECRET_KEY ?? config.default.S3_SECRET_KEY
             },
             forcePathStyle: config.default.S3_FORCE_PATH_STYLE
         });
-        this.bucket = config.default.S3_BUCKET;
+        this.bucket = process.env.S3_BUCKET ?? config.default.S3_BUCKET;
     }
 
     private async ensureBucketExists(): Promise<void> {
@@ -56,6 +66,8 @@ export class S3Storage implements StorageService {
         const uuid = randomUUID().split("-")[0] ?? randomUUID().replace(/-/g, "").slice(0, 8);
         const storageKey = ext ? `${uuid}.${ext}` : uuid;
 
+        validateStorageKey(storageKey);
+
         await this.client.send(
             new PutObjectCommand({
                 Bucket: this.bucket,
@@ -72,6 +84,8 @@ export class S3Storage implements StorageService {
     }
 
     async get(storageKey: string): Promise<Buffer> {
+        validateStorageKey(storageKey);
+
         const response = await this.client.send(
             new GetObjectCommand({
                 Bucket: this.bucket,
@@ -88,6 +102,8 @@ export class S3Storage implements StorageService {
     }
 
     async delete(storageKey: string): Promise<void> {
+        validateStorageKey(storageKey);
+
         await this.client.send(
             new DeleteObjectCommand({
                 Bucket: this.bucket,
@@ -97,6 +113,8 @@ export class S3Storage implements StorageService {
     }
 
     async getPresignedUrl(storageKey: string, expiresInSeconds: number = 3600): Promise<string> {
+        validateStorageKey(storageKey);
+
         const command = new GetObjectCommand({
             Bucket: this.bucket,
             Key: storageKey
@@ -106,7 +124,8 @@ export class S3Storage implements StorageService {
     }
 
     private getContentType(storageKey: string): string {
-        const ext = storageKey.split(".").pop()?.toLowerCase();
+        const parts = storageKey.split(".");
+        const ext = parts.length > 1 ? parts[parts.length - 1]?.toLowerCase() : "";
         const mimeTypes: Record<string, string> = {
             "json": "application/json",
             "txt": "text/plain",
@@ -124,6 +143,6 @@ export class S3Storage implements StorageService {
             "svg": "image/svg+xml"
         };
 
-        return mimeTypes[ext ?? ""] ?? "application/octet-stream";
+        return ext ? (mimeTypes[ext] ?? "application/octet-stream") : "application/octet-stream";
     }
 }
