@@ -5,7 +5,8 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "tsx --test tests/**/*.test.ts",
+    "test:watch": "tsx --test tests/**/*.test.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts"
@@ -27,6 +28,7 @@
     "@fastify/cors": "^11.2.0",
     "@fastify/multipart": "^9.4.0",
     "@fastify/rate-limit": "^10.3.0",
+    "bcrypt": "^6.0.0",
     "bullmq": "^5.71.1",
     "fastify": "^5.8.4",
     "file-type": "^22.0.0",
@@ -34,6 +36,7 @@
     "pg": "^8.20.0"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "@types/cors": "^2.8.19",
     "@types/node": "^25.5.0",
     "@types/pg": "^8.20.0",

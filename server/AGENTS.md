@@ -55,11 +55,11 @@ curl -F "file=@document.pdf" http://localhost:5000/
 | Storage Abstraction | ✅ | LocalDisk, S3, MinIO |
 | Rate Limiting | ✅ | Sliding window (Redis) |
 | Graceful Shutdown | ✅ | Pool/Redis cleanup |
+| Password Protection | ✅ | bcrypt, per-file lockout |
 
 ### Advanced Features (Future)
 | Feature | Priority | Notes |
 |---------|----------|-------|
-| Password Protection | Medium | Per-file security |
 | Download Limits | Low | Max downloads per file |
 | CLI Tool | Low | Terminal-first UX |
 | CDN Integration | Medium | For downloads |
@@ -145,6 +145,11 @@ All configuration is in `server/config/config.json`:
     "MIN_AGE": 1,
     "MAX_AGE": 30,
     "TRUST_PROXY": false,
+    "PASSWORD_PROTECTION_ENABLED": true,
+    "BCRYPT_ROUNDS": 12,
+    "PASSWORD_MIN_LENGTH": 4,
+    "MAX_AUTH_ATTEMPTS": 5,
+    "AUTH_LOCKOUT_DURATION_MS": 300000,
     "MIME_BLACKLIST": [...]
 }
 ```
@@ -167,6 +172,11 @@ All configuration is in `server/config/config.json`:
 | MIN_AGE | number | Min file age in days |
 | MAX_AGE | number | Max file age in days |
 | TRUST_PROXY | boolean | Trust X-Forwarded-For header |
+| PASSWORD_PROTECTION_ENABLED | boolean | Enable/disable password protection |
+| BCRYPT_ROUNDS | number | bcrypt cost factor (default 12) |
+| PASSWORD_MIN_LENGTH | number | Min password length (default 4) |
+| MAX_AUTH_ATTEMPTS | number | Max failed attempts before lockout |
+| AUTH_LOCKOUT_DURATION_MS | number | Lockout duration in ms |
 | MIME_BLACKLIST | string[] | Blocked file types |
 
 ---
@@ -231,6 +241,7 @@ server/
 │   │   ├── expiry.ts        # TTL calculation
 │   │   ├── cleanup.ts       # Cleanup service
 │   │   ├── rate-limit.ts   # Rate limiting
+│   │   ├── password.ts     # Password hashing & auth
 │   │   └── index.ts
 │   └── queues/
 │       └── cleanup.ts        # BullMQ worker
@@ -311,6 +322,8 @@ app.listen({ port }, (err, address) => {
 | MIME Spoofing | Magic byte detection via `file-type` |
 | Rate Limiting | Sliding window with Redis sorted sets |
 | IP Spoofing | `TRUST_PROXY` config option |
+| Password Protection | bcrypt hashing with configurable cost |
+| Auth Rate Limiting | Per-file lockout via Redis |
 
 ### Input Validation Points
 1. **File size** - Reject > MAX_FILE_SIZE
@@ -319,6 +332,72 @@ app.listen({ port }, (err, address) => {
 4. **Magic bytes** - Verify actual content
 5. **Storage key** - Regex pattern match
 6. **Filename** - Sanitize special characters
+7. **Password** - Min length check, bcrypt hashing
+
+---
+
+## Password Protection
+
+### Upload with Password
+```bash
+curl -F "file=@secret.pdf" -F "pass=secret123" http://localhost:5000/
+```
+Response (passwordless):
+```
+http://localhost:5000/files/abc123.pdf
+2026-03-30T12:00:00.000Z
+```
+
+Response (password protected):
+```
+http://localhost:5000/files/abc123.pdf
+2026-03-30T12:00:00.000Z
+
+Password protected. Access via:
+  Header: X-Dropifi-Password: <your-password>
+  Basic Auth: Authorization: Basic base64(:<your-password>)
+```
+
+### Download with Password (Two Methods)
+
+**Method 1: Custom Header (curl)**
+```bash
+curl -H "X-Dropifi-Password: secret123" http://localhost:5000/files/abc123.pdf -o secret.pdf
+```
+
+**Method 2: Basic Auth (browser + curl)**
+```bash
+# Browser: Shows native username/password dialog (username ignored)
+# curl: Use empty username
+curl -u ":secret123" http://localhost:5000/files/abc123.pdf -o secret.pdf
+
+# Or manually construct Basic Auth header
+curl -H "Authorization: Basic $(echo -n ':secret123' | base64)" http://localhost:5000/files/abc123.pdf -o secret.pdf
+```
+
+### Browser Preview
+Files that can be previewed in browser (inline):
+- Images: jpeg, png, gif, webp, svg, bmp
+- PDF: application/pdf
+- Text: plain, html, css, js, json
+- Media: mp3, ogg, wav, mp4, webm, ogg
+
+Other files are downloaded as attachments.
+
+### Auth Lockout
+- After 5 failed attempts, file is locked for 5 minutes
+- Lockout tracked in Redis: `dropifi:auth:lockout:{storageKey}`
+- Successful auth clears all failed attempts
+
+### v1 vs v2 Password Protection
+
+| Aspect | v1 | v2 |
+|--------|----|-----|
+| Hashing | bcrypt, cost 10 (hardcoded) | bcrypt, cost configurable |
+| Download Auth | Basic Auth only | Both Basic Auth + X-Dropifi-Password |
+| Auth Rate Limit | None | Per-file lockout via Redis |
+| Storage | Empty string `''` | NULL (explicit) |
+| Browser Preview | Yes | Yes (inline Content-Disposition) |
 
 ---
 
@@ -390,6 +469,16 @@ curl http://localhost:5000/files/{id}
 
 # Test rate limiting
 for i in {1..12}; do curl -F "file=@package.json" http://localhost:5000/; done
+
+# Test password protection
+curl -F "file=@package.json" -F "pass=secret123" http://localhost:5000/
+curl -H "X-Dropifi-Password: secret123" http://localhost:5000/files/{id} -o package.json
+
+# Test wrong password
+curl -H "X-Dropifi-Password: wrongpass" http://localhost:5000/files/{id}
+
+# Run unit tests (requires Redis running)
+npm test
 ```
 
 ---
@@ -423,6 +512,7 @@ for i in {1..12}; do curl -F "file=@package.json" http://localhost:5000/; done
 6. **BullMQ/Redis**: Background workers survive server restarts, automatic retries
 7. **MinIO**: Free, self-hosted S3-compatible object storage
 8. **Rate Limiting**: Sliding window algorithm using Redis sorted sets
+9. **Password Protection**: bcrypt hashing with per-file auth lockout via Redis
 
 ---
 

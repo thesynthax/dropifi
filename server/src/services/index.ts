@@ -8,3 +8,14 @@ export type { CleanupResult } from "./cleanup.js";
 
 export { checkRateLimit, getClientIdentifier } from "./rate-limit.js";
 export type { RateLimitResult } from "./rate-limit.js";
+
+export {
+    validatePassword,
+    hashPassword,
+    verifyPassword,
+    checkAuthLockout,
+    recordFailedAuthAttempt,
+    clearAuthAttempts,
+    extractBasicAuthPassword
+} from "./password.js";
+export type { PasswordValidationResult, AuthCheckResult } from "./password.js";

@@ -23,8 +23,13 @@ export async function initializeDatabase(): Promise<void> {
                 size BIGINT NOT NULL,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 expires_at TIMESTAMPTZ NOT NULL,
-                removed BOOLEAN NOT NULL DEFAULT FALSE
+                removed BOOLEAN NOT NULL DEFAULT FALSE,
+                password_hash TEXT
             )
+        `);
+
+        await client.query(`
+            ALTER TABLE files ADD COLUMN IF NOT EXISTS password_hash TEXT
         `);
 
         await client.query(`
